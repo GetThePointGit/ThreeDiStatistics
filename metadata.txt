@@ -1,0 +1,30 @@
+# This file contains metadata for your plugin.
+# This file should be included when you package your plugin.
+
+[general]
+name=3di statistics
+qgisMinimumVersion=2.14
+description=Statistics tool as extenion to the ThreeDiToolbox
+version=0.1
+author=Arnold van 't Veld (Nelen & Schuurmans) and Bastiaan Roos (Roos Geo Solutions)
+email=bastiaan.roos@roosgeo.nl
+
+about=...
+
+tracker=https://github.com/GetThePointGit/ThreeDiStatitics/issues
+repository=https://github.com/GetThePointGit/ThreeDiStatitics
+# End of mandatory metadata
+
+# Recommended items:
+
+# Uncomment the following line and add your changelog:
+# changelog=
+
+# Tags are comma separated with spaces allowed
+# tags=
+
+homepage=https://github.com/GetThePointGit/ThreeDiStatitics/wiki
+category=Plugins
+icon=media/icon_statistical_analysis.png
+# experimental flag
+experimental=True
