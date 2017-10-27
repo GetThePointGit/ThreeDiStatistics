@@ -93,6 +93,7 @@ remote_debugger_settings.py
 
 tests/bigdata/
 
-
 # ide
 .idea
+
+cr_*.qml
