@@ -73,7 +73,6 @@ class PipeStats(Base):
     code = Column(String(25))
     display_name = Column(String(128))
     sewerage_type = Column(Integer)
-    length = Column(Float)
     invert_level_start = Column(Float)
     invert_level_end = Column(Float)
     profile_height = Column(Float)
@@ -81,7 +80,7 @@ class PipeStats(Base):
     # statistics
     max_hydro_gradient = Column(Float)
 
-    max_filling = Column(Float)  # without layout
+    max_filling = Column(Float)
     end_filling = Column(Float)
 
     def __str__(self):
@@ -133,6 +132,8 @@ class FlowlineStats(Base):
     flowline = relationship(Flowline,
                             foreign_keys=id,
                             back_populates="stats")
+
+    abs_length = Column(Float)
 
     cum_discharge = Column(Float)
     cum_discharge_positive = Column(Float)
@@ -229,8 +230,7 @@ class Pumpline(Base):
 
 class PumplineStats(Base):
     __tablename__ = 'pumpline_stats'
-    # Here we define columns for the table person
-    # Notice that each column is also a normal Python instance attribute.
+
     id = Column(
         Integer,
         ForeignKey(Pumpline.__tablename__ + ".id"),
@@ -259,3 +259,21 @@ class PumplineStats(Base):
     def __str__(self):
         return u'PumpLineStats {0} - {1}'.format(
             self.code, self.display_name)
+
+
+class StatSource(Base):
+    __tablename__ = 'stat_source'
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        nullable=False,
+        unique=True)
+    table = Column(String(25))
+    field = Column(String(25))
+    from_agg = Column(Boolean)
+
+    def __str__(self):
+        return u'StatSource {0} - {1}'.format(
+            self.table, self.field)
