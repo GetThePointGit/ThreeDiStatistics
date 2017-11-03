@@ -1,7 +1,10 @@
 import logging
 import os.path
+from collections import OrderedDict
 
 import numpy as np
+
+from ThreeDiToolbox.utils.user_messages import pop_up_question
 from pyspatialite import dbapi2
 from qgis.core import (
     QgsMapLayerRegistry, QgsProject, QgsDataSourceURI, QgsVectorLayer)
@@ -12,8 +15,6 @@ from zThreeDiStatistics.sql_models.statistics import FlowlineStats, Node, Manhol
     PipeStats, WeirStats, PumplineStats, StatSource
 from zThreeDiStatistics.utils.statistics_database import (
     StaticsticsDatabase)
-
-from ThreeDiToolbox.utils.user_messages import pop_up_question
 
 log = logging.getLogger(__name__)
 
@@ -49,8 +50,7 @@ class StatisticsTool:
     def on_unload(self):
         """Cleanup necessary items here when plugin dockwidget is closed"""
 
-        if self.widget is not None:
-            self.widget.close()
+        pass
 
     def get_modeldb_session(self):
 
@@ -68,12 +68,6 @@ class StatisticsTool:
 
     def get_modeldb_table(self, name):
         return self.modeldb_meta.tables[name]
-
-    def on_close_child_widget(self):
-        """Cleanup necessary items here when plugin widget is closed"""
-        self.widget.closingWidget.disconnect(self.on_close_child_widget)
-        self.widget = None
-        self.plugin_is_active = False
 
     def run(self, *args, **kwargs):
         """Start processing on first selected model result (netcdf).
@@ -111,7 +105,7 @@ class StatisticsTool:
 
             self.db.create_and_check_fields()
 
-            # # calculate the statistics
+            # calculate the statistics
             self.get_manhole_attributes_and_statistics()
             self.create_node_views()
 
@@ -124,6 +118,10 @@ class StatisticsTool:
 
         # add layers to QGIS map
         self.add_statistic_layers_to_map()
+
+        self.modeldb_engine = None
+        self.modeldb_meta = None
+        self.db = None
 
         log.info('Run statistic tool')
 
@@ -233,8 +231,7 @@ class StatisticsTool:
         # check if statistic is available, otherwise make empty arays for getting result from normal results
         if 's1_max' in self.ds.get_available_variables():
             agg_h_max = True
-            h_max = np.empty(nr_manholes)
-            h_max = -9999.0
+            h_max = np.full(nr_manholes, -9999.0)
             for i, timestamp in enumerate(self.ds.get_agg_var_timestamps('s1_max')):
                 h = self.ds.get_values_by_timestep_nr(
                     's1_max',
@@ -981,7 +978,7 @@ class StatisticsTool:
     def create_pump_views(self):
         session = self.db.get_session()
 
-        # manhole stat view
+        # pump stat view Lines
         session.execute(
             """CREATE VIEW IF NOT EXISTS pump_stats_view 
                (id, node_idx1, node_idx2, the_geom, 
