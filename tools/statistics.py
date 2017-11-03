@@ -471,16 +471,18 @@ class StatisticsTool:
         log.info('create pipe statistic instances.')
         pipe_stats = []
 
-        for pipe in (mod_session.query(pipe_table, profile_table.c.height)
+        for pipe in (mod_session.query(pipe_table, profile_table.c.shape, profile_table.c.height, profile_table.c.width)
                              .filter(pipe_table.c.cross_section_definition_id == profile_table.c.id)):
             if not pipe.id in pipes_mapping:
                 log.warning("no result for pipe with spatialite id %i",
                             pipe.id)
             idx = pipes_mapping[pipe.id]
-            if pipe.height is None:
-                height = None
-            else:
+            if pipe.shape in (1, 2) and pipe.width is not None:
+                height = max(pipe.width.split(' '))
+            elif pipe.shape in (5, 6) and pipe.height is not None:
                 height = max(pipe.height.split(' '))
+            else:
+                height = None
 
             ps = PipeStats(
                 id=idx,
