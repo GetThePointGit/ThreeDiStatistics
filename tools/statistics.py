@@ -575,11 +575,13 @@ class StatisticsTool:
             .filter(FlowlineStats.id == WeirStats.id).scalar()
 
         for weir in res_session.query(WeirStats).join(Flowline).join(FlowlineStats):
-            weir.perc_volume = weir.flowline.stats.cum_discharge / max_cum_discharge
-            weir.perc_volume_positive = weir.flowline.stats.cum_discharge_positive / max_cum_discharge_pos
-            weir.perc_volume_negative = weir.flowline.stats.cum_discharge_negative / max_cum_discharge_neg
-            weir.max_overfall_height = max(weir.flowline.stats.max_waterlevel_start,
-                                           weir.flowline.stats.max_waterlevel_end) - weir.crest_level
+            weir.perc_volume = round(100 * weir.flowline.stats.cum_discharge / max_cum_discharge, 2)
+            weir.perc_volume_positive = round(100 * weir.flowline.stats.cum_discharge_positive / max_cum_discharge_pos,
+                                              2)
+            weir.perc_volume_negative = round(100 * weir.flowline.stats.cum_discharge_negative / max_cum_discharge_neg,
+                                              2)
+            weir.max_overfall_height = round(max(weir.flowline.stats.max_waterlevel_start,
+                                                 weir.flowline.stats.max_waterlevel_end) - weir.crest_level, 3)
 
         res_session.commit()
 
@@ -961,11 +963,11 @@ class StatisticsTool:
             ],
             'overstorten': [
                 ('overstortende straal (max)', 'weir_stats_view', 'max_overfall_height', 'overstort'),
-                ('overstortvolume (cum)', 'weir_stats_view', 'perc_volume', 'overstort'),
-                ('overstortvolume positief (cum)', 'weir_stats_view', 'perc_volume_positive', 'overstort'),
-                ('overstortvolume negatief (cum)', 'weir_stats_view', 'perc_volume_negative', 'overstort'),
             ]
         }
+                ('overstortvolume perc tov max (cum)', 'weir_stats_view', 'perc_volume', 'overstort_perc'),
+                ('overstortvolume positief perc tov max (cum)', 'weir_stats_view', 'perc_volume_positive', 'overstort_perc'),
+                ('overstortvolume negatief perc tov max (cum)', 'weir_stats_view', 'perc_volume_negative', 'overstort_perc'),
 
         root = QgsProject.instance().layerTreeRoot()
 
