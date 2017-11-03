@@ -704,12 +704,12 @@ class StatisticsTool:
                 code=pump.code,
                 display_name=pump.display_name,
                 capacity=pump.capacity / 1000,
-                cum_discharge=q_cum[i],
-                end_discharge=q_end[i],
-                max_discharge=q_max[i],
-                duration_pump_on_max=q_cum[i] / pump.capacity / 1000 / 3600,
-                perc_max_discharge=q_max[i] / pump.capacity / 1000,
-                perc_end_discharge=q_end[i] / pump.capacity / 1000
+                cum_discharge=round(q_cum[i], 3),
+                end_discharge=round(q_end[i], 8),
+                max_discharge=round(q_max[i], 8),
+                duration_pump_on_max=round(q_cum[i] / (pump.capacity / 1000) / 3600, 3),
+                perc_max_discharge=round(100 * q_max[i] / (pump.capacity / 1000), 2),
+                perc_end_discharge=round(100 * q_end[i] / (pump.capacity / 1000), 2)
             )
             pump_stats.append(ps)
 
