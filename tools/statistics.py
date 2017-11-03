@@ -246,8 +246,7 @@ class StatisticsTool:
 
         else:
             agg_h_max = False
-            h_max = np.empty(nr_manholes)
-            h_max = -9999.0
+            h_max = np.full(nr_manholes, -9999.0)
 
         # store sources in database
         self.set_statistic_source('manhole_stats', 'max_waterlevel', agg_h_max)
@@ -294,22 +293,25 @@ class StatisticsTool:
 
             if manhole.connection_node_id in node_mapping:
                 idx = node_mapping[manhole.connection_node_id]
+                ri = int(np.where(manhole_idx == idx)[0][0])
 
                 mhs = ManholeStats(
                     id=idx,
                     code=manhole.code,
                     display_name=manhole.display_name,
                     sewerage_type=manhole.sewerage_type,
-                    bottom_level=manhole.bottom_level,
-                    surface_level=manhole.surface_level,
+                    bottom_level=round(manhole.bottom_level, 3),
+                    surface_level=round(manhole.surface_level, 3),
 
-                    duration_water_on_surface=t_water_surface[i],
-                    max_waterlevel=h_max[i],
-                    end_waterlevel=h_end[i],
+                    duration_water_on_surface=round(t_water_surface[ri] / 3600, 3),
+                    max_waterlevel=round(h_max[ri], 3),
+                    end_waterlevel=round(h_end[ri], 3),
 
-                    max_waterdepth_surface=h_max[i] - manhole.surface_level,
-                    end_filling=((h_end[i] - manhole.bottom_level) /
-                                 (manhole.surface_level - manhole.bottom_level))
+                    max_waterdepth_surface=round(h_max[ri] - manhole.surface_level, 3),
+                    max_filling=round(100 * (h_max[ri] - manhole.bottom_level) /
+                                      (manhole.surface_level - manhole.bottom_level), 1),
+                    end_filling=round(100 * (h_end[ri] - manhole.bottom_level) /
+                                      (manhole.surface_level - manhole.bottom_level), 1)
                 )
                 manhole_stats.append(mhs)
 

@@ -202,6 +202,7 @@ class ManholeStats(Base):
 
     max_waterdepth_surface = Column(Float)
     end_filling = Column(Float)
+    max_filling = Column(Float)
 
     def __str__(self):
         return u'PipeStats {0} - {1}'.format(
