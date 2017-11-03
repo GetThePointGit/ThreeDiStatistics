@@ -1084,23 +1084,23 @@ class StatisticsTool:
 
         stat_group.removeAllChildren()
 
+        # add source stat metadata
+        uri = QgsDataSourceURI()
+        uri.setDatabase(self.result_db_qmodel.spatialite_cache_filepath().replace('\\', '/'))
+        uri.setDataSource('', 'stat_source', '')
+
+        vector_layer = QgsVectorLayer(uri.uri(), 'metadata statistiek bronnen', 'spatialite')
+        QgsMapLayerRegistry.instance().addMapLayer(
+            vector_layer,
+            False)
+
+        stat_group.insertLayer(0, vector_layer)
+
+        legend = self.iface.legendInterface()
+
         for group, layers in styled_layers.items():
             qgroup = stat_group.insertGroup(100, group)
             qgroup.setExpanded(False)
-
-            # add source stat metadata
-            uri = QgsDataSourceURI()
-            uri.setDatabase(self.result_db_qmodel.spatialite_cache_filepath().replace('\\', '/'))
-            uri.setDataSource('', 'stat_source', '')
-
-            vector_layer = QgsVectorLayer(uri.uri(), 'metadata statistiek bronnen', 'spatialite')
-            QgsMapLayerRegistry.instance().addMapLayer(
-                vector_layer,
-                False)
-
-            qgroup.insertLayer(0, vector_layer)
-
-            legend = self.iface.legendInterface()
 
             for layer in layers:
                 uri = QgsDataSourceURI()
