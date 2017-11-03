@@ -1008,6 +1008,36 @@ class StatisticsTool:
             VALUES('pump_stats_view', 'the_geom', 'id', 'pumplines', 'the_geom', 1);
             """
         )
+
+        # pump stat view Lines - points
+        session.execute(
+            """CREATE VIEW IF NOT EXISTS pump_stats_point_view 
+               (id, node_idx1, node_idx2, the_geom, 
+                spatialite_id, code, display_name, capacity,
+                cum_discharge, end_discharge, max_discharge, perc_max_discharge, perc_end_discharge, 
+                duration_pump_on_max
+               ) AS 
+               SELECT p.id, p.node_idx1, p.node_idx2, StartPoint(p.the_geom),
+                ps.spatialite_id, ps.code, ps.display_name, ps.capacity,
+                ps.cum_discharge, ps.end_discharge, ps.max_discharge, ps.perc_max_discharge, ps.perc_end_discharge,
+                ps.duration_pump_on_max
+                FROM pumplines p, pumpline_stats ps
+                WHERE p.id = ps.id;
+        """
+        )
+        session.execute(
+            """
+            DELETE FROM geometry_columns WHERE view_name = 'pump_stats_point_view';
+            """
+        )
+        session.execute(
+            """
+                INSERT INTO geometry_columns (f_table_name, f_geometry_column, geometry_type, coord_dimension, 
+                  SRID, spatial_index_enabled) 
+                VALUES ('pump_stats_point_view', 'the_geom', 1, 2, 4326, 0);
+            """
+        )
+
         session.commit()
 
     def add_statistic_layers_to_map(self):
@@ -1033,12 +1063,12 @@ class StatisticsTool:
                 ('waterstand op straat RWA (max)', 'manhole_stats_rwa_view', 'max_waterdepth_on_surface', 'put_0'),
             ],
             'pumps': [
-                ('perc gemaalcapaciteit (max)', 'pump_stats_view', 'perc_max_discharge', 'pumps_100'),
-                ('perc gemaalcapaciteit (end)', 'pump_stats_view', 'perc_end_discharge', 'pumps_100'),
-                ('totaal verpompt volume [m3]', 'pump_stats_view', 'cum_discharge', 'pumps_100'),
-                ('pompduur op maximale capaciteit [uren]', 'pump_stats_view', 'duration_pump_on_max', 'pumps_8'),
             ],
             'overstorten': [
+                ('perc gemaalcapaciteit (max)', 'pump_stats_point_view', 'perc_max_discharge', 'pumps_100'),
+                ('perc gemaalcapaciteit (end)', 'pump_stats_point_view', 'perc_end_discharge', 'pumps_100'),
+                ('totaal verpompt volume [m3]', 'pump_stats_point_view', 'cum_discharge', 'pumps_100'),
+                ('pompduur op maximale capaciteit [uren]', 'pump_stats_point_view', 'duration_pump_on_max', 'pumps_8'),
                 ('overstortende straal (max)', 'weir_stats_view', 'max_overfall_height', 'overstort'),
             ]
         }
