@@ -905,12 +905,13 @@ class StatisticsTool:
             """CREATE VIEW IF NOT EXISTS manhole_stats_view 
                (id, inp_id, spatialite_id, featuretype, TYPE, the_geom, 
                 code, display_name, sewerage_type, bottom_level, surface_level,
-                duration_water_on_surface, max_waterlevel, end_waterlevel, max_waterdepth_surface, end_filling
+                duration_water_on_surface, max_waterlevel, end_waterlevel, max_waterdepth_surface, 
+                end_filling, max_filling
                ) AS 
                SELECT n.id, n.inp_id, n.spatialite_id, n.featuretype, n.type, n.the_geom,
                 mst.code, mst.display_name, mst.sewerage_type, mst.bottom_level, mst.surface_level,
                 mst.duration_water_on_surface, mst.max_waterlevel, mst.end_waterlevel, mst.max_waterdepth_surface, 
-                mst.end_filling
+                mst.end_filling, mst.max_filling
                 FROM nodes n, manhole_stats mst 
                 WHERE n.id = mst.id;"""
         )
