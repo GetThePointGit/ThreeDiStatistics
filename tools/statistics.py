@@ -538,13 +538,13 @@ class StatisticsTool:
             # make sure it is between 0 and 1
             fill_end = max(0, min(1, fill_end))
             # return average
-            return (fill_start + fill_end) / 2
+            return round(100 * (fill_start + fill_end) / 2, 3)
 
         for pipe in res_session.query(PipeStats).join(Flowline).join(FlowlineStats):
             if (pipe.flowline.stats.abs_length is not None and
-                        pipe.flowline.stats.abs_length > 0):
-                pipe.max_hydro_gradient = (
-                    pipe.flowline.stats.max_waterlevel_head / pipe.flowline.stats.abs_length)
+                        pipe.flowline.stats.abs_length > 0 and pipe.flowline.stats.max_waterlevel_head is not None):
+                pipe.max_hydro_gradient = round(100 * (
+                    pipe.flowline.stats.max_waterlevel_head / pipe.flowline.stats.abs_length), 3)
 
             pipe.max_filling = get_filling(
                 pipe.flowline.stats.max_waterlevel_start,
