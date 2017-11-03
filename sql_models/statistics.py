@@ -252,6 +252,7 @@ class PumplineStats(Base):
     end_discharge = Column(Float)
     max_discharge = Column(Float)
 
+    perc_cum_discharge = Column(Float)
     perc_max_discharge = Column(Float)
     perc_end_discharge = Column(Float)
     duration_pump_on_max = Column(Float)

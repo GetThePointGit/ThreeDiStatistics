@@ -705,6 +705,7 @@ class StatisticsTool:
                 end_discharge=round(q_end[i], 8),
                 max_discharge=round(q_max[i], 8),
                 duration_pump_on_max=round(q_cum[i] / (pump.capacity / 1000) / 3600, 3),
+                perc_cum_discharge=round(100 * q_cum[i] / (self.ds.timestamps[-1] * pump.capacity / 1000), 2),
                 perc_max_discharge=round(100 * q_max[i] / (pump.capacity / 1000), 2),
                 perc_end_discharge=round(100 * q_end[i] / (pump.capacity / 1000), 2)
             )
@@ -729,12 +730,13 @@ class StatisticsTool:
             self.set_stat_source('pumpline_stats', 'cum_discharge', True, param)
             self.set_stat_source('pumpline_stats', 'duration_pump_on_max', True, param)
             self.set_stat_source('pumpline_stats', 'perc_max_discharge', True, param)
+            self.set_stat_source('pumpline_stats', 'perc_cum_discharge', True, param)
         else:
             param = 'q_pump'
             self.set_stat_source('pumpline_stats', 'cum_discharge', False, param, avg_timestep)
             self.set_stat_source('pumpline_stats', 'duration_pump_on_max', False, param, avg_timestep)
             self.set_stat_source('pumpline_stats', 'perc_max_discharge', False, param, avg_timestep)
-
+            self.set_stat_source('pumpline_stats', 'perc_cum_discharge', False, param, avg_timestep)
         return
 
     def create_line_views(self):
@@ -984,12 +986,12 @@ class StatisticsTool:
                (id, node_idx1, node_idx2, the_geom, 
                 spatialite_id, code, display_name, capacity,
                 cum_discharge, end_discharge, max_discharge, perc_max_discharge, perc_end_discharge, 
-                duration_pump_on_max
+                perc_cum_discharge, duration_pump_on_max
                ) AS 
                SELECT p.id, p.node_idx1, p.node_idx2, p.the_geom,
                 ps.spatialite_id, ps.code, ps.display_name, ps.capacity,
                 ps.cum_discharge, ps.end_discharge, ps.max_discharge, ps.perc_max_discharge, ps.perc_end_discharge,
-                ps.duration_pump_on_max
+                ps.perc_cum_discharge, ps.duration_pump_on_max
                 FROM pumplines p, pumpline_stats ps
                 WHERE p.id = ps.id;
         """
@@ -1010,22 +1012,22 @@ class StatisticsTool:
         # pump stat view Lines - points
         session.execute(
             """CREATE VIEW IF NOT EXISTS pump_stats_point_view 
-               (id, node_idx1, node_idx2, the_geom, 
+               (ROWID, id, node_idx1, node_idx2, the_geom, 
                 spatialite_id, code, display_name, capacity,
                 cum_discharge, end_discharge, max_discharge, perc_max_discharge, perc_end_discharge, 
-                duration_pump_on_max
+                perc_cum_discharge, duration_pump_on_max
                ) AS 
-               SELECT p.id, p.node_idx1, p.node_idx2, StartPoint(p.the_geom),
+               SELECT p.id, p.id, p.node_idx1, p.node_idx2, StartPoint(p.the_geom),
                 ps.spatialite_id, ps.code, ps.display_name, ps.capacity,
                 ps.cum_discharge, ps.end_discharge, ps.max_discharge, ps.perc_max_discharge, ps.perc_end_discharge,
-                ps.duration_pump_on_max
+                ps.perc_cum_discharge, ps.duration_pump_on_max
                 FROM pumplines p, pumpline_stats ps
                 WHERE p.id = ps.id;
         """
         )
         session.execute(
             """
-            DELETE FROM geometry_columns WHERE view_name = 'pump_stats_point_view';
+            DELETE FROM geometry_columns WHERE f_table_name = 'pump_stats_point_view';
             """
         )
         session.execute(
@@ -1064,7 +1066,7 @@ class StatisticsTool:
             ('pumps', [
                 ('perc gemaalcapaciteit (max)', 'pump_stats_point_view', 'perc_max_discharge', 'pumps_100'),
                 ('perc gemaalcapaciteit (end)', 'pump_stats_point_view', 'perc_end_discharge', 'pumps_100'),
-                ('totaal verpompt volume [m3]', 'pump_stats_point_view', 'cum_discharge', 'pumps_100'),
+                ('totaal verpompt volume [m3]', 'pump_stats_point_view', 'perc_cum_discharge', 'pumps_100'),
                 ('pompduur op maximale capaciteit [uren]', 'pump_stats_point_view', 'duration_pump_on_max', 'pumps_8'),
             ]),
             ('overstorten', [
