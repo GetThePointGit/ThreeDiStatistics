@@ -1042,16 +1042,17 @@ class StatisticsTool:
 
     def add_statistic_layers_to_map(self):
         # {layer_name: [(name, layer, field, style,), ...], ... }
-        styled_layers = {
-            'leidingen': [
+
+        styled_layers = OrderedDict([
+            ('leidingen', [
                 ('debiet (max)', 'pipe_stats_view', 'max_discharge', 'leiding_1'),
-                ('stroomsnelheid (max)', 'pipe_stats_view', 'max_velocit', 'leiding_1'),
+                ('stroomsnelheid (max)', 'pipe_stats_view', 'max_velocity', 'leiding_1'),
                 ('verhang [cm/m] (max)', 'pipe_stats_view', 'max_hydro_gradient', 'leiding_1'),
                 ('stroomsnelheid (end)', 'pipe_stats_view', 'end_velocity', 'leiding_2'),
                 ('stroomsnelheid DWA en Gemengd (end)', 'pipe_stats_dwa_mixed_view', 'end_velocity', 'leiding_2'),
                 ('stroomsnelheid RWA (end)', 'pipe_stats_rwa_view', 'end_velocity', 'leiding_2'),
-            ],
-            'putten': [
+            ]),
+            ('putten', [
                 ('vullingsgraad (max)', 'manhole_stats_view', 'max_filling', 'vullingsgraad_put'),
                 ('vullingsgraad DWA en gemengd (end)', 'manhole_stats_dwa_mixed_view', 'end_filling',
                  'vullingsgraad_put'),
@@ -1059,22 +1060,22 @@ class StatisticsTool:
                 ('duur wos [uren]', 'manhole_stats_view', 'duration_water_on_surface', 'wos'),
                 ('waterstand op straat (max)', 'manhole_stats_view', 'max_waterdepth_surface', 'put_0'),
                 ('waterstand op straat DWA en gemengd(max)', 'manhole_stats_dwa_mixed_view',
-                 'max_waterdepth_on_surface', 'put_0'),
-                ('waterstand op straat RWA (max)', 'manhole_stats_rwa_view', 'max_waterdepth_on_surface', 'put_0'),
-            ],
-            'pumps': [
-            ],
-            'overstorten': [
+                 'max_waterdepth_surface', 'put_0'),
+                ('waterstand op straat RWA (max)', 'manhole_stats_rwa_view', 'max_waterdepth_surface', 'put_0'),
+            ]),
+            ('pumps', [
                 ('perc gemaalcapaciteit (max)', 'pump_stats_point_view', 'perc_max_discharge', 'pumps_100'),
                 ('perc gemaalcapaciteit (end)', 'pump_stats_point_view', 'perc_end_discharge', 'pumps_100'),
                 ('totaal verpompt volume [m3]', 'pump_stats_point_view', 'cum_discharge', 'pumps_100'),
                 ('pompduur op maximale capaciteit [uren]', 'pump_stats_point_view', 'duration_pump_on_max', 'pumps_8'),
+            ]),
+            ('overstorten', [
                 ('overstortende straal (max)', 'weir_stats_view', 'max_overfall_height', 'overstort'),
-            ]
-        }
                 ('overstortvolume perc tov max (cum)', 'weir_stats_view', 'perc_volume', 'overstort_perc'),
                 ('overstortvolume positief perc tov max (cum)', 'weir_stats_view', 'perc_volume_positive', 'overstort_perc'),
                 ('overstortvolume negatief perc tov max (cum)', 'weir_stats_view', 'perc_volume_negative', 'overstort_perc'),
+            ])
+        ])
 
         root = QgsProject.instance().layerTreeRoot()
 
@@ -1086,7 +1087,22 @@ class StatisticsTool:
         stat_group.removeAllChildren()
 
         for group, layers in styled_layers.items():
-            qgroup = stat_group.insertGroup(0, group)
+            qgroup = stat_group.insertGroup(100, group)
+            qgroup.setExpanded(False)
+
+            # add source stat metadata
+            uri = QgsDataSourceURI()
+            uri.setDatabase(self.result_db_qmodel.spatialite_cache_filepath().replace('\\', '/'))
+            uri.setDataSource('', 'stat_source', '')
+
+            vector_layer = QgsVectorLayer(uri.uri(), 'metadata statistiek bronnen', 'spatialite')
+            QgsMapLayerRegistry.instance().addMapLayer(
+                vector_layer,
+                False)
+
+            qgroup.insertLayer(0, vector_layer)
+
+            legend = self.iface.legendInterface()
 
             for layer in layers:
                 uri = QgsDataSourceURI()
@@ -1124,4 +1140,5 @@ class StatisticsTool:
                         vector_layer,
                         False)
 
-                    qgroup.insertLayer(0, vector_layer)
+                    qgroup.insertLayer(100, vector_layer)
+                    legend.setLayerVisible(vector_layer, False)
