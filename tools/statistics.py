@@ -128,9 +128,9 @@ class StatisticsTool:
     def has_mod_views(self):
 
         mod_session = self.get_modeldb_session()
-        view_table = self.get_modeldb_table('geometry_columns')
+        view_table = self.get_modeldb_table('views_geometry_columns')
         return mod_session.query(view_table).filter(
-            view_table.c.f_table_name == 'v2_1d_boundary_conditions_view').count() != 0
+            view_table.c.view_name == 'v2_1d_boundary_conditions_view').count() != 0
 
     def has_res_views(self):
 
@@ -144,7 +144,7 @@ class StatisticsTool:
 
         mod_session.execute(
             """
-                CREATE VIEW v2_pumpstation_point_view AS
+                CREATE VIEW IF NOT EXISTS v2_pumpstation_point_view AS
                 SELECT a.ROWID AS ROWID, a.id AS pump_id, a.display_name, a.code, a.classification, a.sewerage, 
                 a.start_level, a.lower_stop_level, 
                        a.upper_stop_level, a.capacity, a.zoom_category, a.connection_node_start_id, 
@@ -154,14 +154,20 @@ class StatisticsTool:
 
         mod_session.execute(
             """
-                INSERT INTO geometry_columns (f_table_name, f_geometry_column, type, coord_dimension, 
-                  SRID, spatial_index_enabled) 
-                VALUES ('v2_pumpstation_point_view', 'the_geom', 'POINT', 'XY', 4326, 0);           
+            DELETE FROM views_geometry_columns WHERE view_name = 'v2_pumpstation_point_view';
+            """
+        )
+
+        mod_session.execute(
+            """
+                INSERT INTO views_geometry_columns (view_name, view_geometry, view_rowid, f_table_name, 
+                  f_geometry_column)
+                VALUES('v2_pumpstation_point_view', 'the_geom', 'connection_node_start_id', 'v2_connection_nodes', 'the_geom');         
             """)
 
         mod_session.execute(
             """
-                CREATE VIEW v2_1d_lateral_view AS
+                CREATE VIEW IF NOT EXISTS v2_1d_lateral_view AS
                 SELECT a.ROWID AS ROWID, a.id AS id, a.connection_node_id AS connection_node_id, 
                   a.timeseries AS timeseries, b.the_geom 
                 FROM v2_1d_lateral a 
@@ -170,14 +176,20 @@ class StatisticsTool:
 
         mod_session.execute(
             """
-                INSERT INTO geometry_columns (f_table_name, f_geometry_column, type, coord_dimension, 
-                  SRID, spatial_index_enabled) 
-                VALUES ('v2_1d_lateral_view', 'the_geom', 'POINT', 'XY', 4326, 0);
+            DELETE FROM views_geometry_columns WHERE view_name = 'v2_1d_lateral_view';
+            """
+        )
+
+        mod_session.execute(
+            """
+                INSERT INTO views_geometry_columns (view_name, view_geometry, view_rowid, f_table_name, 
+                  f_geometry_column)
+                VALUES('v2_1d_lateral_view', 'the_geom', 'connection_node_id', 'v2_connection_nodes', 'the_geom');
             """)
 
         mod_session.execute(
             """
-                CREATE VIEW v2_1d_boundary_conditions_view AS
+                CREATE VIEW IF NOT EXISTS v2_1d_boundary_conditions_view AS
                 SELECT a.ROWID AS ROWID, a.id AS id, a.connection_node_id AS connection_node_id, 
                   a.boundary_type AS boundary_type, a.timeseries AS timeseries, b.the_geom 
                 FROM v2_1d_boundary_conditions a 
@@ -186,9 +198,15 @@ class StatisticsTool:
 
         mod_session.execute(
             """
-                INSERT INTO geometry_columns (f_table_name, f_geometry_column, type, coord_dimension, 
-                  SRID, spatial_index_enabled) 
-                VALUES ('v2_1d_boundary_conditions_view', 'the_geom', 'POINT', 'XY', 4326, 0);
+            DELETE FROM views_geometry_columns WHERE view_name = 'v2_1d_boundary_conditions_view';
+            """
+        )
+
+        mod_session.execute(
+            """
+                INSERT INTO views_geometry_columns (view_name, view_geometry, view_rowid, f_table_name, 
+                  f_geometry_column)
+                VALUES('v2_1d_boundary_conditions_view', 'the_geom', 'connection_node_id', 'v2_connection_nodes', 'the_geom');
             """)
 
         mod_session.commit()
