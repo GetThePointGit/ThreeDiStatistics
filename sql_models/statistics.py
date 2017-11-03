@@ -76,7 +76,7 @@ class PipeStats(Base):
     invert_level_start = Column(Float)
     invert_level_end = Column(Float)
     profile_height = Column(Float)
-
+    abs_length = Column(Float)
     # statistics
     max_hydro_gradient = Column(Float)
 

@@ -379,8 +379,8 @@ class StatisticsTool:
         qmax = np.zeros(ds.nFlowLine)
         vmax = np.zeros(ds.nFlowLine)
         dh_max = np.zeros(ds.nFlowLine)
-        hmax_start = np.zeros(ds.nFlowLine)
-        hmax_end = np.zeros(ds.nFlowLine)
+        hmax_start = np.full(ds.nFlowLine, -9999.0)
+        hmax_end = np.full(ds.nFlowLine, -9999.0)
 
         prev_timestamp = 0.0
         for i, timestamp in enumerate(ds.timestamps):
@@ -405,14 +405,15 @@ class StatisticsTool:
             vmax = np.maximum(vmax, np.abs(v))
 
             h = ds.get_values_by_timestep_nr('s1', i - 1)
-
-            h_array = np.asarray(h)
+            h_array = h
 
             h_start = np.take(h_array, start_idx)
             h_end = np.take(h_array, end_idx)
-            dh_max = np.maximum(dh_max, np.absolute(h_start - h_end))
-            hmax_start = np.maximum(hmax_start, h_start)
-            hmax_end = np.maximum(hmax_end, h_end)
+            np.copyto(dh_max, np.maximum(dh_max, np.asarray(np.absolute(h_start - h_end))),
+                      where=np.logical_not(np.logical_or(h_start.mask, h_end.mask)))
+
+            hmax_start = np.maximum(hmax_start, np.asarray(h_start))
+            hmax_end = np.maximum(hmax_end, np.asarray(h_end))
 
         qend = ds.get_values_by_timestep_nr('q', len(ds.timestamps) - 1)
         vend = ds.get_values_by_timestep_nr('u1', len(ds.timestamps) - 1)
@@ -429,19 +430,19 @@ class StatisticsTool:
                                   ).order_by(Flowline.id)):
             fls = FlowlineStats(
                 id=flowline.id,
-                cum_discharge=qcum[i],
-                cum_discharge_positive=qcum_pos[i],
-                cum_discharge_negative=qcum_neg[i],
-                max_discharge=qmax[i],
-                end_discharge=qend[i],
-                max_velocity=vmax[i],
-                end_velocity=vend[i],
-                max_waterlevel_head=dh_max[i],
-                max_waterlevel_start=hmax_start[i],
-                max_waterlevel_end=hmax_end[i],
-                end_waterlevel_start=hend_start[i],
-                end_waterlevel_end=hend_end[i],
-                abs_length=flowline.abs_length
+                cum_discharge=round(qcum[i], 3),
+                cum_discharge_positive=round(qcum_pos[i], 3),
+                cum_discharge_negative=round(qcum_neg[i], 3),
+                max_discharge=round(qmax[i], 8),
+                end_discharge=round(qend[i], 8),
+                max_velocity=round(vmax[i], 8),
+                end_velocity=round(vend[i], 8),
+                max_waterlevel_head=round(dh_max[i], 4),
+                max_waterlevel_start=round(hmax_start[i], 3),
+                max_waterlevel_end=round(hmax_end[i], 3),
+                end_waterlevel_start=round(hend_start[i], 3),
+                end_waterlevel_end=round(hend_end[i], 3),
+                abs_length=round(flowline.abs_length, 3)
             )
             flowline_list.append(fls)
 
@@ -698,14 +699,14 @@ class StatisticsTool:
         session.execute(
             """CREATE VIEW IF NOT EXISTS pipe_stats_view 
                (id, inp_id, spatialite_id, TYPE, start_node_idx, end_node_idx, the_geom,
-                code, display_name, sewerage_type, LENGTH, invert_level_start, invert_level_end, profile_height,
+                code, display_name, sewerage_type, abs_length, invert_level_start, invert_level_end, profile_height,
                 max_hydro_gradient, max_filling, end_filling,
                 cum_discharge, cum_discharge_positive, cum_discharge_negative, 
                 max_discharge, end_discharge, 
                 max_velocity, end_velocity,
                 max_waterlevel_head, max_waterlevel_start, max_waterlevel_end) AS 
                SELECT f.id, f.inp_id, f.spatialite_id, f.type, f.start_node_idx, f.end_node_idx, f.the_geom,
-                ps.code, ps.display_name, ps.sewerage_type, ps.length, ps.invert_level_start, ps.invert_level_end, 
+                ps.code, ps.display_name, ps.sewerage_type, fs.abs_length, ps.invert_level_start, ps.invert_level_end, 
                 ps.profile_height,
                 ps.max_hydro_gradient, ps.max_filling, ps.end_filling,   
                 fs.cum_discharge, fs.cum_discharge_positive, fs.cum_discharge_negative, 
