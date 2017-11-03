@@ -79,7 +79,6 @@ class PipeStats(Base):
     abs_length = Column(Float)
     # statistics
     max_hydro_gradient = Column(Float)
-
     max_filling = Column(Float)
     end_filling = Column(Float)
 
@@ -274,6 +273,8 @@ class StatSource(Base):
     table = Column(String(25))
     field = Column(String(25))
     from_agg = Column(Boolean)
+    input_param = Column(String(25))
+    timestep = Column(Integer)
 
     def __str__(self):
         return u'StatSource {0} - {1}'.format(

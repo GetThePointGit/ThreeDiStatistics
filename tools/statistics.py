@@ -248,10 +248,6 @@ class StatisticsTool:
             agg_h_max = False
             h_max = np.full(nr_manholes, -9999.0)
 
-        # store sources in database
-        self.set_statistic_source('manhole_stats', 'max_waterlevel', agg_h_max)
-        self.set_statistic_source('manhole_stats', 'max_waterdepth_surface', agg_h_max)
-
         # make empty arrays for the results
         t_water_surface = np.zeros(nr_manholes, dtype=np.float32)
 
@@ -321,19 +317,41 @@ class StatisticsTool:
         log.info("Save manhole statistic instances to database ")
         res_session.bulk_save_objects(manhole_stats)
         res_session.commit()
+
+        # store sources in database
+        avg_timestep = int(self.ds.timestamps[-1] / (len(self.ds.timestamps) - 1))
+        h_param = 's1'
+        self.set_stat_source('manhole_stats', 'duration_water_on_surface', False, h_param, avg_timestep)
+        self.set_stat_source('manhole_stats', 'end_waterlevel', False, h_param, avg_timestep)
+        self.set_stat_source('manhole_stats', 'end_filling', False, h_param, avg_timestep)
+        if agg_h_max:
+            h_param = 's1_max'
+            self.set_stat_source('manhole_stats', 'max_waterlevel', True, h_param)
+            self.set_stat_source('manhole_stats', 'max_waterdepth_surface', True, h_param)
+            self.set_stat_source('manhole_stats', 'max_filling', True, h_param)
+        else:
+            h_param = 's1'
+            self.set_stat_source('manhole_stats', 'max_waterlevel', False, h_param, avg_timestep)
+            self.set_stat_source('manhole_stats', 'max_waterdepth_surface', False, h_param, avg_timestep)
+            self.set_stat_source('manhole_stats', 'max_filling', False, h_param, avg_timestep)
+
         return
 
-    def set_statistic_source(self, table, field, from_aggregated):
+    def set_stat_source(self, table, field, from_aggregated, input_param, timestep=None):
         res_session = self.db.get_session()
         t = StatSource
         instance = res_session.query(t).filter((t.table == table) & (t.field == field)).first()
         if instance:
             instance.from_agg = from_aggregated
+            instance.input_param = input_param
+            instance.timestep = timestep
         else:
             instance = StatSource(
                 table=table,
                 field=field,
-                from_agg=from_aggregated
+                from_agg=from_aggregated,
+                input_param=input_param,
+                timestep=timestep
             )
             res_session.add(instance)
 
@@ -370,11 +388,6 @@ class StatisticsTool:
         qcum, agg_q_cum = self.get_agg_cum_if_available('q_cum')
         qcum_pos, agg_q_cum_pos = self.get_agg_cum_if_available('q_cum_positive')
         qcum_neg, agg_q_cum_neg = self.get_agg_cum_if_available('q_cum_negative')
-
-        # store sources in database
-        self.set_statistic_source('flowline_stats', 'cum_discharge', agg_q_cum)
-        self.set_statistic_source('flowline_stats', 'cum_discharge_positive', agg_q_cum_pos)
-        self.set_statistic_source('flowline_stats', 'cum_discharge_negative', agg_q_cum_neg)
 
         qmax = np.zeros(ds.nFlowLine)
         vmax = np.zeros(ds.nFlowLine)
@@ -452,6 +465,54 @@ class StatisticsTool:
         log.info('commit flowline statistics to database')
         res_session.bulk_save_objects(flowline_list)
         res_session.commit()
+
+        # store sources in database
+        avg_timestep = int(self.ds.timestamps[-1] / (len(self.ds.timestamps) - 1))
+        param = 'q'
+        self.set_stat_source('flowline_stats', 'max_discharge', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'end_discharge', False, param, avg_timestep)
+
+        param = 'u1'
+        self.set_stat_source('flowline_stats', 'max_velocity', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'end_velocity', False, param, avg_timestep)
+
+        param = 's1'
+        self.set_stat_source('flowline_stats', 'max_waterlevel_head', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'max_waterlevel_start', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'max_waterlevel_end', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'end_waterlevel_start', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'end_waterlevel_end', False, param, avg_timestep)
+        self.set_stat_source('pipe_stats', 'max_filling', False, param, avg_timestep)
+        self.set_stat_source('pipe_stats', 'end_filling', False, param, avg_timestep)
+        self.set_stat_source('pipe_stats', 'max_hydro_gradient', False, param, avg_timestep)
+        self.set_stat_source('weir_stats', 'max_overfall_height', False, param, avg_timestep)
+
+        if agg_q_cum:
+            param = 'q_cum'
+            self.set_stat_source('flowline_stats', 'cum_discharge', True, param)
+            self.set_stat_source('weir_stats', 'perc_volume', True, param)
+        else:
+            param = 'q'
+            self.set_stat_source('flowline_stats', 'cum_discharge', False, param, avg_timestep)
+            self.set_stat_source('weir_stats', 'perc_volume', False, param, avg_timestep)
+
+        if agg_q_cum_pos:
+            param = 'q_cum_pos'
+            self.set_stat_source('flowline_stats', 'cum_discharge_positive', True, param)
+            self.set_stat_source('weir_stats', 'perc_volume_positive', True, param)
+        else:
+            param = 'q'
+            self.set_stat_source('flowline_stats', 'cum_discharge_positive', False, param, avg_timestep)
+            self.set_stat_source('weir_stats', 'perc_volume_positive', False, param, avg_timestep)
+
+        if agg_q_cum_neg:
+            param = 'q_cum_neg'
+            self.set_stat_source('flowline_stats', 'cum_discharge_negative', True, param)
+            self.set_stat_source('weir_stats', 'perc_volume_negative', True, param)
+        else:
+            param = 'q'
+            self.set_stat_source('flowline_stats', 'cum_discharge_negative', False, param, avg_timestep)
+            self.set_stat_source('weir_stats', 'perc_volume_negative', False, param, avg_timestep)
 
     def calc_pipe_and_weir_statistics(self):
 
@@ -608,9 +669,6 @@ class StatisticsTool:
 
         q_cum, agg_q_cum = self.get_agg_cum_if_available('q_pump_cum')
 
-        # store sources in database
-        self.set_statistic_source('pumpline_stats', 'cum_discharge', agg_q_cum)
-
         q_max = np.zeros(nr_pumps, dtype=np.float32)
 
         # loop over timestamps and calculate statistics
@@ -661,6 +719,25 @@ class StatisticsTool:
         log.info("Save pumpline statistic instances to database ")
         res_session.bulk_save_objects(pump_stats)
         res_session.commit()
+
+        # store sources in database
+        avg_timestep = int(self.ds.timestamps[-1] / (len(self.ds.timestamps) - 1))
+        param = 'q_pump'
+        self.set_stat_source('pumpline_stats', 'end_discharge', False, param, avg_timestep)
+        self.set_stat_source('pumpline_stats', 'max_discharge', False, param, avg_timestep)
+        self.set_stat_source('pumpline_stats', 'perc_end_discharge', False, param, avg_timestep)
+
+        if agg_q_cum:
+            param = 'q_pump_cum'
+            self.set_stat_source('pumpline_stats', 'cum_discharge', True, param)
+            self.set_stat_source('pumpline_stats', 'duration_pump_on_max', True, param)
+            self.set_stat_source('pumpline_stats', 'perc_max_discharge', True, param)
+        else:
+            param = 'q_pump'
+            self.set_stat_source('pumpline_stats', 'cum_discharge', False, param, avg_timestep)
+            self.set_stat_source('pumpline_stats', 'duration_pump_on_max', False, param, avg_timestep)
+            self.set_stat_source('pumpline_stats', 'perc_max_discharge', False, param, avg_timestep)
+
         return
 
     def create_line_views(self):
