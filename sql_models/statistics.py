@@ -141,7 +141,7 @@ class FlowlineStats(Base):
     end_discharge = Column(Float)
     max_velocity = Column(Float)
     end_velocity = Column(Float)
-    max_waterlevel_head = Column(Float)
+    max_head_difference = Column(Float)
     max_waterlevel_start = Column(Float)
     max_waterlevel_end = Column(Float)
     end_waterlevel_start = Column(Float)
