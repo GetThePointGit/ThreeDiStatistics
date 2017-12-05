@@ -11,8 +11,8 @@ from qgis.core import (
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
-from zThreeDiStatistics.sql_models.statistics import FlowlineStats, Node, ManholeStats, Flowline, \
-    PipeStats, WeirStats, PumplineStats, StatSource
+from zThreeDiStatistics.sql_models.statistics import (FlowlineStats, Node, ManholeStats, Flowline,
+                                                      PipeStats, WeirStats, PumplineStats, StatSource)
 from zThreeDiStatistics.utils.statistics_database import (
     StaticsticsDatabase)
 
@@ -74,7 +74,13 @@ class StatisticsTool:
             Assumption is that sqlite1 already exist and is filled with flowlines, pumps and nodes.
         """
         # get links to active model database and active results (list in row)
-        self.ds = self.ts_datasource.rows[0].datasource()
+
+        if 'test' in kwargs and kwargs['test']:
+            test = True
+        else:
+            test = False
+
+        self.ds = self.ts_datasource.rows[-1].datasource()
         self.result_db_qmodel = self.ts_datasource.rows[-1]
 
         # setup statistics database sqlalchemy instance and create models (if not exist) in the
@@ -89,13 +95,13 @@ class StatisticsTool:
 
         self.db = StaticsticsDatabase(db_set, db_type)
 
-        if (not self.has_mod_views() and
+        if (not self.has_mod_views() and not test and
                 pop_up_question('Do you want to add views to the model database?',
                                 'Add views?', )):
             self.add_modeldb_views()
 
         calculate_stats = True
-        if (self.has_res_views() and
+        if (self.has_res_views() and not test and
                 not pop_up_question('Recalculate the statistics?',
                                     'Recalculate?', )):
             calculate_stats = False
@@ -117,7 +123,8 @@ class StatisticsTool:
             self.create_pump_views()
 
         # add layers to QGIS map
-        self.add_statistic_layers_to_map()
+        if not test:
+            self.add_statistic_layers_to_map()
 
         self.modeldb_engine = None
         self.modeldb_meta = None
@@ -246,7 +253,7 @@ class StatisticsTool:
         manhole_surface_level = np.array(manhole_surface_level)
 
         log.info("Read results and calculate statistics. ")
-        # check if statistic is available, otherwise make empty arays for getting result from normal results
+        # check if statistic is available, otherwise make empty arrays for getting result from normal results
         if 's1_max' in self.ds.get_available_variables():
             agg_h_max = True
             h_max = np.full(nr_manholes, -9999.0)
@@ -276,7 +283,7 @@ class StatisticsTool:
             # read data from netcdf using index to get only manholes
             h = self.ds.get_values_by_timestep_nr(
                 's1',
-                i - 1,
+                i,
                 index=manhole_idx)
 
             # unmask result (dry cells no have -9999 values
@@ -298,7 +305,7 @@ class StatisticsTool:
         for i, manhole in enumerate(
                 mod_session.query(manhole_table, func.min(pipe_table.c.sewerage_type).label('sewerage_type'))
                         .filter((manhole_table.c.connection_node_id == pipe_table.c.connection_node_start_id) |
-                                        (manhole_table.c.connection_node_id == pipe_table.c.connection_node_end_id))
+                                (manhole_table.c.connection_node_id == pipe_table.c.connection_node_end_id))
                         .group_by(manhole_table.c.connection_node_id)
                         .order_by(manhole_table.c.connection_node_id)):
 
@@ -315,14 +322,17 @@ class StatisticsTool:
                     surface_level=round(manhole.surface_level, 3),
 
                     duration_water_on_surface=round(t_water_surface[ri] / 3600, 3),
-                    max_waterlevel=round(h_max[ri], 3),
-                    end_waterlevel=round(h_end[ri], 3),
+                    max_waterlevel=None if h_max[ri] == -9999.0 else round(h_max[ri], 3),
+                    end_waterlevel=None if h_end[ri] == -9999.0 else round(h_end[ri], 3),
 
-                    max_waterdepth_surface=round(h_max[ri] - manhole.surface_level, 3),
-                    max_filling=round(100 * (h_max[ri] - manhole.bottom_level) /
-                                      (manhole.surface_level - manhole.bottom_level), 1),
-                    end_filling=round(100 * (h_end[ri] - manhole.bottom_level) /
-                                      (manhole.surface_level - manhole.bottom_level), 1)
+                    max_waterdepth_surface=None if h_max[ri] == -9999.0 else round(
+                        h_max[ri] - manhole.surface_level, 3),
+                    max_filling=None if h_max[ri] == -9999.0 else round(
+                        100 * (h_max[ri] - manhole.bottom_level) /
+                        (manhole.surface_level - manhole.bottom_level), 1),
+                    end_filling=None if h_end[ri] == -9999.0 else round(
+                        100 * (h_end[ri] - manhole.bottom_level) /
+                        (manhole.surface_level - manhole.bottom_level), 1)
                 )
                 manhole_stats.append(mhs)
 
@@ -372,7 +382,9 @@ class StatisticsTool:
 
         res_session.commit()
 
-    def get_agg_cum_if_available(self, parameter_name):
+    def get_agg_cum_if_available(self, parameter_name, nr=None):
+        if nr is None:
+            nr = self.ds.nFlowLine
 
         if parameter_name in self.ds.get_available_variables():
             agg_cum = True
@@ -381,7 +393,7 @@ class StatisticsTool:
                 len(self.ds.get_agg_var_timestamps(parameter_name)) - 1)
         else:
             agg_cum = False
-            result = np.zeros(self.ds.nFlowLine)
+            result = np.zeros(nr)
         return result, agg_cum
 
     def calc_flowline_statistics(self):
@@ -404,8 +416,11 @@ class StatisticsTool:
         qcum_pos, agg_q_cum_pos = self.get_agg_cum_if_available('q_cum_positive')
         qcum_neg, agg_q_cum_neg = self.get_agg_cum_if_available('q_cum_negative')
 
+        direction = np.full(ds.nFlowLine, 1)
         qmax = np.zeros(ds.nFlowLine)
+        qmin = np.zeros(ds.nFlowLine)
         vmax = np.zeros(ds.nFlowLine)
+        vmin = np.zeros(ds.nFlowLine)
         dh_max = np.zeros(ds.nFlowLine)
         hmax_start = np.full(ds.nFlowLine, -9999.0)
         hmax_end = np.full(ds.nFlowLine, -9999.0)
@@ -416,7 +431,7 @@ class StatisticsTool:
             timestep = timestamp - prev_timestamp
             prev_timestamp = timestamp
 
-            q = ds.get_values_by_timestep_nr('q', i - 1)
+            q = ds.get_values_by_timestep_nr('q', i)
 
             if not agg_q_cum:
                 # todo: most accurate way to calculate cum based on normal netcdf
@@ -427,12 +442,14 @@ class StatisticsTool:
             if not agg_q_cum_neg:
                 qcum_neg -= q.clip(max=0) * timestep
 
-            qmax = np.maximum(qmax, np.abs(q))
+            qmax = np.maximum(qmax, q)
+            qmin = np.minimum(qmin, q)
 
-            v = ds.get_values_by_timestep_nr('u1', i - 1)
-            vmax = np.maximum(vmax, np.abs(v))
+            v = ds.get_values_by_timestep_nr('u1', i)
+            vmax = np.maximum(vmax, v)
+            vmin = np.minimum(vmin, v)
 
-            h = ds.get_values_by_timestep_nr('s1', i - 1)
+            h = ds.get_values_by_timestep_nr('s1', i)
             h_array = h
 
             h_start = np.take(h_array, start_idx)
@@ -442,6 +459,14 @@ class StatisticsTool:
 
             hmax_start = np.maximum(hmax_start, np.asarray(h_start))
             hmax_end = np.maximum(hmax_end, np.asarray(h_end))
+
+        np.copyto(direction, -1,
+                  where=qmax < -1 * qmin)
+        qmax = np.maximum(qmax, -1 * qmin) * direction
+
+        np.copyto(direction, -1,
+                  where=vmax < -1 * vmin)
+        vmax = np.maximum(vmax, -1 * vmin) * direction
 
         qend = ds.get_values_by_timestep_nr('q', len(ds.timestamps) - 1)
         vend = ds.get_values_by_timestep_nr('u1', len(ds.timestamps) - 1)
@@ -465,11 +490,11 @@ class StatisticsTool:
                 end_discharge=round(qend[i], 8),
                 max_velocity=round(vmax[i], 8),
                 end_velocity=round(vend[i], 8),
-                max_waterlevel_head=round(dh_max[i], 4),
-                max_waterlevel_start=round(hmax_start[i], 3),
-                max_waterlevel_end=round(hmax_end[i], 3),
-                end_waterlevel_start=round(hend_start[i], 3),
-                end_waterlevel_end=round(hend_end[i], 3),
+                max_head_difference=round(dh_max[i], 4),
+                max_waterlevel_start=None if hmax_start[i] == -9999.0 else round(hmax_start[i], 3),
+                max_waterlevel_end=None if hmax_end[i] == -9999.0 else round(hmax_end[i], 3),
+                end_waterlevel_start=None if hend_start[i] == -9999.0 else round(hend_start[i], 3),
+                end_waterlevel_end=None if hend_end[i] == -9999.0 else round(hend_end[i], 3),
                 abs_length=round(flowline.abs_length, 3)
             )
             flowline_list.append(fls)
@@ -492,7 +517,7 @@ class StatisticsTool:
         self.set_stat_source('flowline_stats', 'end_velocity', False, param, avg_timestep)
 
         param = 's1'
-        self.set_stat_source('flowline_stats', 'max_waterlevel_head', False, param, avg_timestep)
+        self.set_stat_source('flowline_stats', 'max_head_difference', False, param, avg_timestep)
         self.set_stat_source('flowline_stats', 'max_waterlevel_start', False, param, avg_timestep)
         self.set_stat_source('flowline_stats', 'max_waterlevel_end', False, param, avg_timestep)
         self.set_stat_source('flowline_stats', 'end_waterlevel_start', False, param, avg_timestep)
@@ -548,8 +573,8 @@ class StatisticsTool:
         pipe_stats = []
 
         for pipe in (mod_session.query(pipe_table, profile_table.c.shape, profile_table.c.height, profile_table.c.width)
-                             .filter(pipe_table.c.cross_section_definition_id == profile_table.c.id)):
-            if not pipe.id in pipes_mapping:
+                .filter(pipe_table.c.cross_section_definition_id == profile_table.c.id)):
+            if pipe.id not in pipes_mapping:
                 log.warning("no result for pipe with spatialite id %i",
                             pipe.id)
             idx = pipes_mapping[pipe.id]
@@ -618,9 +643,9 @@ class StatisticsTool:
 
         for pipe in res_session.query(PipeStats).join(Flowline).join(FlowlineStats):
             if (pipe.flowline.stats.abs_length is not None and
-                        pipe.flowline.stats.abs_length > 0 and pipe.flowline.stats.max_waterlevel_head is not None):
+                    pipe.flowline.stats.abs_length > 0 and pipe.flowline.stats.max_head_difference is not None):
                 pipe.max_hydro_gradient = round(100 * (
-                    pipe.flowline.stats.max_waterlevel_head / pipe.flowline.stats.abs_length), 3)
+                        pipe.flowline.stats.max_head_difference / pipe.flowline.stats.abs_length), 3)
 
             pipe.max_filling = get_filling(
                 pipe.flowline.stats.max_waterlevel_start,
@@ -651,13 +676,19 @@ class StatisticsTool:
             .filter(FlowlineStats.id == WeirStats.id).scalar()
 
         for weir in res_session.query(WeirStats).join(Flowline).join(FlowlineStats):
-            weir.perc_volume = round(100 * weir.flowline.stats.cum_discharge / max_cum_discharge, 2)
-            weir.perc_volume_positive = round(100 * weir.flowline.stats.cum_discharge_positive / max_cum_discharge_pos,
-                                              2)
-            weir.perc_volume_negative = round(100 * weir.flowline.stats.cum_discharge_negative / max_cum_discharge_neg,
-                                              2)
-            weir.max_overfall_height = round(max(weir.flowline.stats.max_waterlevel_start,
-                                                 weir.flowline.stats.max_waterlevel_end) - weir.crest_level, 3)
+            weir.perc_volume = None if max_cum_discharge == 0.0 else round(
+                100 * weir.flowline.stats.cum_discharge / max_cum_discharge, 2)
+
+            weir.perc_volume_positive = None if max_cum_discharge_pos == 0.0 else round(
+                100 * weir.flowline.stats.cum_discharge_positive / max_cum_discharge_pos, 2)
+
+            weir.perc_volume_negative = None if max_cum_discharge_neg == 0.0 else round(
+                100 * weir.flowline.stats.cum_discharge_negative / max_cum_discharge_neg, 2)
+
+            weir.max_overfall_height = None if (weir.flowline.stats.max_waterlevel_start is None and
+                                                weir.flowline.stats.max_waterlevel_end is None) else round(
+                max(weir.flowline.stats.max_waterlevel_start,
+                    weir.flowline.stats.max_waterlevel_end) - weir.crest_level, 3)
 
         res_session.commit()
 
@@ -682,7 +713,7 @@ class StatisticsTool:
         log.info("Read results and calculate statistics. ")
         # make empty arrays for the results
 
-        q_cum, agg_q_cum = self.get_agg_cum_if_available('q_pump_cum')
+        q_cum, agg_q_cum = self.get_agg_cum_if_available('q_pump_cum', nr_pumps)
 
         q_max = np.zeros(nr_pumps, dtype=np.float32)
 
@@ -696,10 +727,10 @@ class StatisticsTool:
             # read data from netcdf using index to get only manholes
             q = self.ds.get_values_by_timestep_nr(
                 'q_pump',
-                i - 1)
+                i)
             # calculate statistics
             if not agg_q_cum:
-                q_cum += q_cum * timestep
+                q_cum += q * timestep
 
             q_max = np.maximum(q_max, q)
 
@@ -722,10 +753,14 @@ class StatisticsTool:
                 cum_discharge=round(q_cum[i], 3),
                 end_discharge=round(q_end[i], 8),
                 max_discharge=round(q_max[i], 8),
-                duration_pump_on_max=round(q_cum[i] / (pump.capacity / 1000) / 3600, 3),
-                perc_cum_discharge=round(100 * q_cum[i] / (self.ds.timestamps[-1] * pump.capacity / 1000), 2),
-                perc_max_discharge=round(100 * q_max[i] / (pump.capacity / 1000), 2),
-                perc_end_discharge=round(100 * q_end[i] / (pump.capacity / 1000), 2)
+                duration_pump_on_max=(None if pump.capacity == 0.0 else round(
+                    q_cum[i] / (pump.capacity / 1000) / 3600, 3)),
+                perc_cum_discharge=None if pump.capacity == 0.0 else round(
+                    100 * q_cum[i] / (self.ds.timestamps[-1] * pump.capacity / 1000), 2),
+                perc_max_discharge=None if pump.capacity == 0.0 else round(
+                    100 * q_max[i] / (pump.capacity / 1000), 2),
+                perc_end_discharge=None if pump.capacity == 0.0 else round(
+                    100 * q_end[i] / (pump.capacity / 1000), 2)
             )
             pump_stats.append(ps)
 
@@ -768,12 +803,12 @@ class StatisticsTool:
                 cum_discharge, cum_discharge_positive, cum_discharge_negative, 
                 max_discharge, end_discharge, 
                 max_velocity, end_velocity,
-                max_waterlevel_head, max_waterlevel_start, max_waterlevel_end) AS 
+                max_head_difference, max_waterlevel_start, max_waterlevel_end) AS 
                SELECT f.id, f.inp_id, f.spatialite_id, f.type, f.start_node_idx, f.end_node_idx, f.the_geom,
                 fs.cum_discharge, fs.cum_discharge_positive, fs.cum_discharge_negative, 
                 fs.max_discharge, fs.end_discharge, 
                 fs.max_velocity, fs.end_velocity,
-                fs.max_waterlevel_head, fs.max_waterlevel_start, fs.max_waterlevel_end
+                fs.max_head_difference, fs.max_waterlevel_start, fs.max_waterlevel_end
                 FROM flowlines f, flowline_stats fs 
                 WHERE f.id = fs.id;"""
         )
@@ -802,7 +837,7 @@ class StatisticsTool:
                 cum_discharge, cum_discharge_positive, cum_discharge_negative, 
                 max_discharge, end_discharge, 
                 max_velocity, end_velocity,
-                max_waterlevel_head, max_waterlevel_start, max_waterlevel_end) AS 
+                max_head_difference, max_waterlevel_start, max_waterlevel_end) AS 
                SELECT f.id, f.inp_id, f.spatialite_id, f.type, f.start_node_idx, f.end_node_idx, f.the_geom,
                 ps.code, ps.display_name, ps.sewerage_type, fs.abs_length, ps.invert_level_start, ps.invert_level_end, 
                 ps.profile_height,
@@ -810,7 +845,7 @@ class StatisticsTool:
                 fs.cum_discharge, fs.cum_discharge_positive, fs.cum_discharge_negative, 
                 fs.max_discharge, fs.end_discharge, 
                 fs.max_velocity, fs.end_velocity,
-                fs.max_waterlevel_head, fs.max_waterlevel_start, fs.max_waterlevel_end
+                fs.max_head_difference, fs.max_waterlevel_start, fs.max_waterlevel_end
                 FROM flowlines f, flowline_stats fs, pipe_stats ps
                 WHERE f.id = fs.id AND f.id = ps.id;"""
         )
@@ -887,14 +922,14 @@ class StatisticsTool:
                 cum_discharge, cum_discharge_positive, cum_discharge_negative, 
                 max_discharge, end_discharge, 
                 max_velocity, end_velocity,
-                max_waterlevel_head, max_waterlevel_start, max_waterlevel_end) AS 
+                max_head_difference, max_waterlevel_start, max_waterlevel_end) AS 
                SELECT f.id, f.inp_id, f.spatialite_id, f.type, f.start_node_idx, f.end_node_idx, f.the_geom,
                 ws.code, ws.display_name,
                 ws.perc_volume, ws.perc_volume_positive, ws.perc_volume_negative, ws.max_overfall_height,  
                 fs.cum_discharge, fs.cum_discharge_positive, fs.cum_discharge_negative, 
                 fs.max_discharge, fs.end_discharge, 
                 fs.max_velocity, fs.end_velocity,
-                fs.max_waterlevel_head, fs.max_waterlevel_start, fs.max_waterlevel_end
+                fs.max_head_difference, fs.max_waterlevel_start, fs.max_waterlevel_end
                 FROM flowlines f, flowline_stats fs, weir_stats ws
                 WHERE f.id = fs.id AND f.id = ws.id;"""
         )
@@ -1090,8 +1125,10 @@ class StatisticsTool:
             ('overstorten', [
                 ('overstortende straal (max)', 'weir_stats_view', 'max_overfall_height', 'overstort'),
                 ('overstortvolume perc tov max (cum)', 'weir_stats_view', 'perc_volume', 'overstort_perc'),
-                ('overstortvolume positief perc tov max (cum)', 'weir_stats_view', 'perc_volume_positive', 'overstort_perc'),
-                ('overstortvolume negatief perc tov max (cum)', 'weir_stats_view', 'perc_volume_negative', 'overstort_perc'),
+                ('overstortvolume positief perc tov max (cum)', 'weir_stats_view', 'perc_volume_positive',
+                 'overstort_perc'),
+                ('overstortvolume negatief perc tov max (cum)', 'weir_stats_view', 'perc_volume_negative',
+                 'overstort_perc'),
             ])
         ])
 
