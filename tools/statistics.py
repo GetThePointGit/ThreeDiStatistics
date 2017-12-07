@@ -743,6 +743,8 @@ class StatisticsTool:
         # no idmapping info in pumpline model, so get from idmapping file
         id_mapping = self.ds.id_mapping['v2_pumpstation']
 
+        max_q_cum = q_cum.max()
+
         for i, pump in enumerate(mod_session.query(pump_table).order_by(pump_table.c.id)):
             ps = PumplineStats(
                 id=id_mapping[str(pump.id)] - 1,
@@ -755,8 +757,8 @@ class StatisticsTool:
                 max_discharge=round(q_max[i], 8),
                 duration_pump_on_max=(None if pump.capacity == 0.0 else round(
                     q_cum[i] / (pump.capacity / 1000) / 3600, 3)),
-                perc_cum_discharge=None if pump.capacity == 0.0 else round(
-                    100 * q_cum[i] / (self.ds.timestamps[-1] * pump.capacity / 1000), 2),
+                perc_cum_discharge=None if max_q_cum == 0.0 else round(
+                    100 * q_cum[i] / max_q_cum, 2),
                 perc_max_discharge=None if pump.capacity == 0.0 else round(
                     100 * q_max[i] / (pump.capacity / 1000), 2),
                 perc_end_discharge=None if pump.capacity == 0.0 else round(
