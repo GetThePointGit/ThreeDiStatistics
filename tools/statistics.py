@@ -327,10 +327,12 @@ class StatisticsTool:
 
                     max_waterdepth_surface=None if h_max[ri] == -9999.0 else round(
                         h_max[ri] - manhole.surface_level, 3),
-                    max_filling=None if h_max[ri] == -9999.0 else round(
+                    max_filling=None if (h_max[ri] == -9999.0 or manhole.surface_level == manhole.bottom_level)
+                    else round(
                         100 * (h_max[ri] - manhole.bottom_level) /
                         (manhole.surface_level - manhole.bottom_level), 1),
-                    end_filling=None if h_end[ri] == -9999.0 else round(
+                    end_filling=None if (h_end[ri] == -9999.0 or manhole.surface_level == manhole.bottom_level)
+                    else round(
                         100 * (h_end[ri] - manhole.bottom_level) /
                         (manhole.surface_level - manhole.bottom_level), 1)
                 )
@@ -629,7 +631,8 @@ class StatisticsTool:
         res_session.commit()
 
         def get_filling(start_level, end_level, start_invert_level, end_invert_level, profile_height):
-            if None in [start_level, end_level, start_invert_level, end_invert_level, profile_height]:
+            if (None in [start_level, end_level, start_invert_level, end_invert_level, profile_height] or
+                    profile_height <= 0.0):
                 return None
 
             fill_start = (start_level - start_invert_level) / profile_height
