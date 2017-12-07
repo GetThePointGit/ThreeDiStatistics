@@ -9,8 +9,8 @@
     <ranges>
       <range render="true" symbol="0" lower="0.000000000000000" upper="0.0100000000000" label="0"/>
       <range render="true" symbol="1" lower="0.0100000000000" upper="5" label="0 - 5"/>
-      <range render="true" symbol="2" lower="5" upper="100" label="5 - 10"/>
-      <range render="true" symbol="3" lower="100" upper="25" label="10 - 25"/>
+      <range render="true" symbol="2" lower="5" upper="10" label="5 - 10"/>
+      <range render="true" symbol="3" lower="10" upper="25" label="10 - 25"/>
       <range render="true" symbol="4" lower="25" upper="50" label="25 - 50"/>
       <range render="true" symbol="5" lower="50" upper="100" label="50 - 100"/>
       <range render="true" symbol="6" lower="100" upper="999999.000000000000000" label="> 100"/>
