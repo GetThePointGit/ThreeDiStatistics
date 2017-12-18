@@ -155,6 +155,7 @@ class FlowlineStats(Base):
 
 class Node(Base):
     __tablename__ = 'nodes'
+    extend_existing = True
 
     id = Column(Integer, primary_key=True)
     inp_id = Column(Integer)
@@ -214,7 +215,7 @@ class Pumpline(Base):
     node_idx1 = Column(Integer, nullable=False)
     node_idx2 = Column(Integer, nullable=True)
 
-    the_geom = Column(Geometry(geometry_type='POINT',
+    the_geom = Column(Geometry(geometry_type='LINESTRING',
                                srid=4326,
                                spatial_index=True),
                       nullable=False)

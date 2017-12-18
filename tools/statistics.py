@@ -703,6 +703,10 @@ class StatisticsTool:
         mod_session = self.get_modeldb_session()
         pump_table = self.get_modeldb_table('v2_pumpstation')
 
+        if 'q_pump' not in self.ds.get_available_variables():
+            log.info('Variable q_pump is not available, skip pump statistics')
+            return
+
         # get idx and surface level
         manhole_idx = []
         pump_capacity = []
