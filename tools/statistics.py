@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-from ThreeDiToolbox.utils.user_messages import pop_up_question
+from ThreeDiToolbox.utils.user_messages import pop_up_question, pop_up_info
 from pyspatialite import dbapi2
 from qgis.core import (
     QgsMapLayerRegistry, QgsProject, QgsDataSourceURI, QgsVectorLayer)
@@ -109,7 +109,10 @@ class StatisticsTool:
         if calculate_stats:
             log.info('Create statistic models if needed.')
 
-            self.db.create_and_check_fields()
+            try:
+                self.db.create_and_check_fields()
+            except dbapi2.OperationalError, e:
+                pop_up_info('Database error. You could try it again, in most cases this fix the problem.', 'ERROR')
 
             # calculate the statistics
             self.get_manhole_attributes_and_statistics()
@@ -249,6 +252,10 @@ class StatisticsTool:
         # create numpy arrays for index for index based reading of the netcdf and
         # surface level for calculating time on surface
         nr_manholes = len(manhole_idx)
+        if nr_manholes == 0:
+            log.warning('No manholes found, skip manhoile statistics.')
+            return
+
         manhole_idx = np.array(manhole_idx)
         manhole_surface_level = np.array(manhole_surface_level)
 
@@ -311,6 +318,7 @@ class StatisticsTool:
 
             if manhole.connection_node_id in node_mapping:
                 idx = node_mapping[manhole.connection_node_id]
+                # get element number of manhole result array
                 ri = int(np.where(manhole_idx == idx)[0][0])
 
                 mhs = ManholeStats(
@@ -707,8 +715,7 @@ class StatisticsTool:
             log.info('Variable q_pump is not available, skip pump statistics')
             return
 
-        # get idx and surface level
-        manhole_idx = []
+        # get pump capacity
         pump_capacity = []
         for pump in mod_session.query(pump_table).order_by(pump_table.c.id):
             pump_capacity.append(pump.capacity)
@@ -765,11 +772,11 @@ class StatisticsTool:
                 duration_pump_on_max=(None if pump.capacity == 0.0 else round(
                     q_cum[i] / (pump.capacity / 1000) / 3600, 3)),
                 perc_cum_discharge=None if max_q_cum == 0.0 else round(
-                    100 * q_cum[i] / max_q_cum, 2),
+                    100 * q_cum[i] / max_q_cum, 1),
                 perc_max_discharge=None if pump.capacity == 0.0 else round(
-                    100 * q_max[i] / (pump.capacity / 1000), 2),
+                    100 * q_max[i] / (pump.capacity / 1000), 1),
                 perc_end_discharge=None if pump.capacity == 0.0 else round(
-                    100 * q_end[i] / (pump.capacity / 1000), 2)
+                    100 * q_end[i] / (pump.capacity / 1000), 1)
             )
             pump_stats.append(ps)
 

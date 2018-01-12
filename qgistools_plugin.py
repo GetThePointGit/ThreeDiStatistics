@@ -137,7 +137,7 @@ class ThreeDiStatistics(QObject):
 
         except:
             raise ImportError("For ThreeDiStatistics tool the ThreeDiToolbox plugin must be installed, "
-                              "version xxx or higher")
+                              "version 0.13 or higher")
 
         # Declare instance attributes
         self.actions = []
