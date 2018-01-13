@@ -81,7 +81,7 @@ class StatisticsTool:
             test = False
 
         self.ds = self.ts_datasource.rows[-1].datasource()
-        self.result_db_qmodel = self.ts_datasource.rows[-1]
+        self.result_db_qmodel = self.ts_datasource.rows[0]
 
         # setup statistics database sqlalchemy instance and create models (if not exist) in the
         # result cache spatialite
