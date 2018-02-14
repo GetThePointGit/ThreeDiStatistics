@@ -434,6 +434,7 @@ class StatisticsTool:
         dh_max = np.zeros(ds.nFlowLine)
         hmax_start = np.full(ds.nFlowLine, -9999.0)
         hmax_end = np.full(ds.nFlowLine, -9999.0)
+        dh_max_calc = 0
 
         prev_timestamp = 0.0
         for i, timestamp in enumerate(ds.timestamps):
@@ -464,11 +465,19 @@ class StatisticsTool:
 
             h_start = np.take(h_array, start_idx)
             h_end = np.take(h_array, end_idx)
-            np.copyto(dh_max, np.maximum(dh_max, np.asarray(np.absolute(h_start - h_end))),
+            try:
+                np.copyto(dh_max, np.maximum(dh_max, np.asarray(np.absolute(h_start - h_end))),
                       where=np.logical_not(np.logical_or(h_start.mask, h_end.mask)))
+            except:
+                log.info('dh_max is not loaded for timestep: %s' % (timestamp))
+                dh_max_calc = 1
 
             hmax_start = np.maximum(hmax_start, np.asarray(h_start))
             hmax_end = np.maximum(hmax_end, np.asarray(h_end))
+        
+        # make it work for 2D models
+        if dh_max_calc == 1:
+            dh_max = np.zeros(ds.nFlowLine)
 
         np.copyto(direction, -1,
                   where=qmax < -1 * qmin)
