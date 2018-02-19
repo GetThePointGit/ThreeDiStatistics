@@ -434,7 +434,7 @@ class StatisticsTool:
         dh_max = np.zeros(ds.nFlowLine)
         hmax_start = np.full(ds.nFlowLine, -9999.0)
         hmax_end = np.full(ds.nFlowLine, -9999.0)
-        dh_max_calc = 0
+        dh_max_calc = True
 
         prev_timestamp = 0.0
         for i, timestamp in enumerate(ds.timestamps):
@@ -470,13 +470,13 @@ class StatisticsTool:
                       where=np.logical_not(np.logical_or(h_start.mask, h_end.mask)))
             except:
                 log.info('dh_max is not loaded for timestep: %s' % (timestamp))
-                dh_max_calc = 1
+                dh_max_calc = False
 
             hmax_start = np.maximum(hmax_start, np.asarray(h_start))
             hmax_end = np.maximum(hmax_end, np.asarray(h_end))
         
         # make it work for 2D models
-        if dh_max_calc == 1:
+        if not dh_max_calc:
             dh_max = np.zeros(ds.nFlowLine)
 
         np.copyto(direction, -1,
@@ -536,7 +536,11 @@ class StatisticsTool:
         self.set_stat_source('flowline_stats', 'end_velocity', False, param, avg_timestep)
 
         param = 's1'
-        self.set_stat_source('flowline_stats', 'max_head_difference', False, param, avg_timestep)
+        if dh_max_calc:       
+            self.set_stat_source('flowline_stats', 'max_head_difference', False, param, avg_timestep)
+        else:
+            self.set_stat_source('flowline_stats', 'max_head_difference', False, '-', None)
+        
         self.set_stat_source('flowline_stats', 'max_waterlevel_start', False, param, avg_timestep)
         self.set_stat_source('flowline_stats', 'max_waterlevel_end', False, param, avg_timestep)
         self.set_stat_source('flowline_stats', 'end_waterlevel_start', False, param, avg_timestep)
